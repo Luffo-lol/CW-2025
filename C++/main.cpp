@@ -11,12 +11,12 @@ class Problem {
     public:
         string inFileName;
         int scheme;
-        long double T;
-        long double dt;
-        long double g;
-        long double rho;
-        long double Cd;
-        vector<vector<long double>> data; //m, A, K, y_0, v_0, h_0
+        double T;
+        double dt;
+        double g;
+        double rho;
+        double Cd;
+        vector<vector<double>> data; //m, A, K, y_0, v_0, h_0
         vector<vector<vector<long double>>> evaluatedMatrix;
 
 
@@ -24,7 +24,10 @@ class Problem {
         inFileName = filename;
         readFile(filename);
         cout << "File Read" << endl;
-        cout << "System Conditions - Scheme: " << scheme << " T = " << T << " dt = " << dt << " g = " << g << " rho = " << rho << " Cd = " << Cd << endl;
+        cout << "System Conditions - Scheme: " << scheme << " T = " << T << " dt = " << dt << " g = " << g << " rho = " << rho << " Cd = " << Cd << endl;   
+    }
+
+    void solveProblem(){
         generateMatrix();
         cout << "Matrix Generated" << endl;
         saveToFile();
@@ -36,11 +39,12 @@ class Problem {
         vector<long double> constants; //Scheme, T, dt, g, rho, Cd
 
         if (!file) {
-            return 1;
+            cout << "Error: Could not open file " << filename << endl;
+            exit (1);
         }
 
         string line;
-        while (line[0] != '#') { //finds first line to find constant values
+        while (line.empty()||line[0] != '#') { //finds first line to find constant values
             getline(file,line);
         }
 
@@ -71,10 +75,10 @@ class Problem {
         g = constants[3];
         rho = constants[4];
         Cd = constants[5];
-        constants.clear();//cleaing memory
+        constants.clear();//clearing memory
 
         while (getline(file,line)) { //finds and saves data for remaining lines
-            vector<long double> row;
+            vector<double> row;
             if (line[0] != '#'){
                 for (char c : line) {
                     if (c != ' ') {
@@ -95,6 +99,16 @@ class Problem {
             }
         }
         file.close();//closes file to prevent errors if other files are opened
+
+        if (dt <= 0 || T <= 0) {
+            cout << "Error: Invalid time step or total time." << endl;
+            exit(1);
+        }
+        if (data.empty()) {
+            cout << "Error: No vessel data found." << endl;
+            exit(1);
+        }
+
         return 0;
     }      
 
@@ -188,11 +202,15 @@ class Problem {
                 schemeName = "RK4";
             }
 
-            string outFileName = "writeFiles/positionData-" + inFileName + "-" + to_string(vesselNumber + 1) + "-" + schemeName + ".txt";
+            string outFileName = "writeFiles/positionData-" + inFileName + "-" + to_string(vesselNumber + 1) + "-" + schemeName + "-dt=" + to_string(dt) + ".txt";
             ofstream outFile(outFileName);
+
             outFile << inFileName << " - Vessel Number " << to_string(vesselNumber + 1) << endl;
             outFile << "m = " << data[vesselNumber][0] << " A = " <<  data[vesselNumber][1] << " K = " <<  data[vesselNumber][2] << " y0 = " << data[vesselNumber][3] << " v0 = " << data[vesselNumber][4] << " h0 = " << data[vesselNumber][5] << endl;
             outFile << "t " << "yn " << "vn " << "hn" << endl; 
+            outFile << "yBar = " << data[vesselNumber][0]/(rho * data[vesselNumber][1]) << endl;
+            
+            outFile << "deltaT = " << dt << endl;
 
             cout << outFileName << endl;
             if (outFile.is_open()) {
@@ -214,9 +232,13 @@ class Problem {
 
 
 int main() {
-    Problem firstTest = Problem("parameters.txt");
+    //Problem firstTest = Problem("parameters.txt");
+    //firstTest.solveProblem();
     Problem Q3Part1 = Problem("SV-ND.txt");
-    Problem Q3Part2 = Problem("SV-LD.txt");
-    Problem Q3Part3 = Problem("SinkingVessel.txt");
-    Problem Q3Part4 = Problem("ThreeVessels.txt");
+    Q3Part1.solveProblem();
+    //Problem Q3Part2 = Problem("SV-LD.txt");
+    //Q3Part2.solveProblem();
+    //Problem Q3Part3 = Problem("SinkingVessel.txt");
+    //Q3Part3.solveProblem();
+    //Problem Q3Part4 = Problem("ThreeVessels.txt");
 }

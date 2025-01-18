@@ -15,6 +15,7 @@ omega = sqrt((rhoLiquid*gravity)/(rhoObjects*L));
 
 %Question 1 Part a 
 y = @(t) 0.1*cos(omega*t);
+dy = @(t) 0.1*-(sin(omega*t));
 t1 = linspace(0,10,100);
 
 figure(1)
@@ -31,7 +32,9 @@ tMax = 10;
 tVal = tInitial:tDelta:tMax;
 
 figure(2)
+tic
 yEE = explicitEulerSecondOrder(-(omega^2), tDelta, initialDisplacement, initialVelocity, tInitial, tMax);
+EETime = toc
 plot(tVal, yEE);
 ylabel('Position of Object, m')
 xlabel('Time, s')
@@ -40,7 +43,9 @@ title('Explicit Euler Solution')
 
 %Question 2 Part b
 figure(3)
+tic
 yRK4 = RK4SecondOrder(-(omega^2), tDelta, initialDisplacement, initialVelocity, tInitial, tMax);
+RK4Time = toc
 plot(tVal, yRK4);
 ylabel('Position of Object, m')
 xlabel('Time, s')
@@ -49,7 +54,9 @@ title('4th Order Runge-Kutta Solution')
 
 %Question 2 Part c
 figure(4)
+tic
 odeSystem = @(t, y) [y(2); -(omega^2) * y(1)];
+ODE45Time = toc
 [tODE45, yODE45] = ode45(odeSystem, tVal, [initialDisplacement, initialVelocity]);
 y45 = yODE45(:, 1)';
 plot(tVal, y45)%plots displacment with respect to time
@@ -78,6 +85,12 @@ ylabel('Position of Object, m')
 xlabel('Time, s')
 legend('Analytical Solution', '4th Order Runge-Kutta', 'ODE45 Solution', 'Location', 'southwest')
 
+%Questions 2 Part e
+tOneCycle = linspace(0,omega/(pi),1000);
+figure(14)
+plot(y(tOneCycle),dy(tOneCycle));
+ylabel('Velocity of Object, m/s')
+xlabel('Position of Object, m')
 
 %Question 3 Part a
 figure(6)
@@ -182,7 +195,6 @@ title('Investigating Changes in Initial Velocity')
 c = 0.2;
 yDampedRK4 = RK4Damped(omega, c, tDelta, initialDisplacement, initialVelocity, tInitial, tMax);
 
-%Question 4 Part b, iii
 figure(13)
 plot(tVal, y(tVal))
 hold on
