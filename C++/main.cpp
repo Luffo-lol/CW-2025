@@ -11,12 +11,12 @@ class Problem {
     public:
         string inFileName;
         int scheme;
-        double T;
-        double dt;
-        double g;
-        double rho;
-        double Cd;
-        vector<vector<double>> data; //m, A, K, y_0, v_0, h_0
+        long double T;
+        long double dt;
+        long double g;
+        long double rho;
+        long double Cd;
+        vector<vector<long double>> data; //m, A, K, y_0, v_0, h_0
         vector<vector<vector<long double>>> evaluatedMatrix;
 
 
@@ -78,7 +78,7 @@ class Problem {
         constants.clear();//clearing memory
 
         while (getline(file,line)) { //finds and saves data for remaining lines
-            vector<double> row;
+            vector<long double> row;
             if (line[0] != '#'){
                 for (char c : line) {
                     if (c != ' ') {
@@ -116,8 +116,8 @@ class Problem {
         return  (K/(rho*A) * (m/(rho*A) + yt - ht));
     }
 
-    long double findAcc (long double m, long double A, long double K, long double yt, long double ht, long double vt){
-        return ((rho*A)/(m + rho*A*ht) * (2*g*ht - g*yt - 0.5*Cd*abs(vt)*vt));
+    long double findAcc (long double m, long double A, long double K, long double yt, long double vt, long double ht){
+        return ((rho*A)/(m + rho*A*ht)) * (2.0*g*ht - g*yt - 0.5*Cd*abs(vt)*vt);
     }
 
 
@@ -125,7 +125,7 @@ class Problem {
         vector<vector<long double>> out;
         vector<long double> row = {0, y0, v0, h0};
         out.push_back(row);
-        for(long double t = dt; t <= T; t += dt){
+        for(long double t = dt; t <= T + 1e-9; t += dt){//to remove floating point errors that delete final elements sometimes
             long double yn = row[1] + row[2]*dt; //calculated yn using velocity
             long double vn = row[2] + findAcc(m,A,K,row[1],row[2],row[3])*dt; //calculated vn using acceleration
             long double hn = row[3] + finddh(m,A,K,row[1],row[3])*dt;
@@ -140,21 +140,21 @@ class Problem {
         vector<vector<long double>> out;
         vector<long double> row = {0, y0, v0, h0};
         out.push_back(row);
-        for(long double t = dt; t <= T; t += dt){
-            long double vk1 = findAcc(m,A,K,row[1],row[2],row[3])*dt;
-            long double yk1 = row[2]*dt;
-            long double hk1 = finddh(m,A,K,row[1],row[3])*dt;
+        for(long double t = dt; t <= T + 1e-9; t += dt){//to remove floating point errors that delete final elements sometimes
+            long double vk1 = dt * findAcc(m,A,K,row[1],row[2],row[3]);
+            long double yk1 = dt * row[2];
+            long double hk1 = dt * finddh(m,A,K,row[1],row[3]);
             
             long double vk2 = dt * findAcc(m,A,K,row[1] + yk1/2, row[2] + vk1/2, row[3] + hk1/2);
-            long double yk2 = dt * (row[2] + findAcc(m,A,K,row[1] + yk1/2, row[2] + vk1/2, row[3] + hk1/2));
+            long double yk2 = dt * (row[2] + vk1/2);
             long double hk2 = dt * finddh(m,A,K,row[1] + yk1/2,row[3] + hk1/2);
 
             long double vk3 = dt * findAcc(m,A,K,row[1] + yk2/2, row[2] + vk2/2, row[3] + hk2/2);
-            long double yk3 = dt * (row[2] + findAcc(m,A,K,row[1] + yk2/2, row[2] + vk2/2, row[3] + hk2/2));
+            long double yk3 = dt * (row[2] + vk2/2);
             long double hk3 = dt * finddh(m,A,K,row[1] + yk2/2,row[3] + hk2/2);
 
             long double vk4 = dt * findAcc(m,A,K,row[1] + yk3, row[2] + vk3, row[3] + hk3);
-            long double yk4 = dt * (row[2] + findAcc(m,A,K,row[1] + yk3, row[2] + vk3, row[3] + hk3));
+            long double yk4 = dt * (row[2] + vk3);
             long double hk4 = dt * finddh(m,A,K,row[1] + yk3,row[3] + hk3);
             
             //cout << "vk" << endl;
@@ -173,6 +173,7 @@ class Problem {
             
             out.push_back(row);
         }
+        cout << "t = " << row[0] << " y = " << row[1] << " v = " << row[2] << " hn = " << row[3] << endl;
         cout << "Returned" << endl;
         return out;
     }
@@ -193,37 +194,40 @@ class Problem {
     }
 
     void saveToFile(){
-        for (int vesselNumber = 0; vesselNumber < data.size();vesselNumber++){
-            string schemeName = "";
-            if (scheme == 0){
-                schemeName = "FE";
-            }
-            if (scheme == 1){
-                schemeName = "RK4";
-            }
-
-            string outFileName = "writeFiles/positionData-" + inFileName + "-" + to_string(vesselNumber + 1) + "-" + schemeName + "-dt=" + to_string(dt) + ".txt";
-            ofstream outFile(outFileName);
-
-            outFile << inFileName << " - Vessel Number " << to_string(vesselNumber + 1) << endl;
-            outFile << "m = " << data[vesselNumber][0] << " A = " <<  data[vesselNumber][1] << " K = " <<  data[vesselNumber][2] << " y0 = " << data[vesselNumber][3] << " v0 = " << data[vesselNumber][4] << " h0 = " << data[vesselNumber][5] << endl;
-            outFile << "t " << "yn " << "vn " << "hn" << endl; 
-            outFile << "yBar = " << data[vesselNumber][0]/(rho * data[vesselNumber][1]) << endl;
-            
-            outFile << "deltaT = " << dt << endl;
-
-            cout << outFileName << endl;
-            if (outFile.is_open()) {
-                for(int rowNumber = 0; rowNumber < size(evaluatedMatrix[vesselNumber]); rowNumber++){
-                        outFile << evaluatedMatrix[vesselNumber][rowNumber][0] << ", " << evaluatedMatrix[vesselNumber][rowNumber][1] << ", " << evaluatedMatrix[vesselNumber][rowNumber][2] << ", " << evaluatedMatrix[vesselNumber][rowNumber][3] << endl;
-                        //cout << evaluatedMatrix[vesselNumber][rowNumber][0] << "," << evaluatedMatrix[vesselNumber][rowNumber][0] << "," << evaluatedMatrix[vesselNumber][rowNumber][1] << "," << evaluatedMatrix[vesselNumber][rowNumber][2] << "," << evaluatedMatrix[vesselNumber][rowNumber][3] << "," << endl;
-                }
-            } 
-            else {
-                cout << "Unable to open the file." << endl;
-            }
-            outFile.close();
+        string schemeName = "";
+        if (scheme == 0){
+            schemeName = "FE";
         }
+        if (scheme == 1){
+            schemeName = "RK4";
+        }
+
+        string outFileName = "writeFiles/positionData-" + inFileName + "-" + to_string(data.size()) + "-" + schemeName + "-dt=" + to_string(dt) + ".txt";
+        ofstream outFile(outFileName);
+
+        //outFile << inFileName << " - Vessel Number " << to_string(vesselNumber + 1) << endl;
+        //outFile << "m = " << data[vesselNumber][0] << " A = " <<  data[vesselNumber][1] << " K = " <<  data[vesselNumber][2] << " y0 = " << data[vesselNumber][3] << " v0 = " << data[vesselNumber][4] << " h0 = " << data[vesselNumber][5] << endl;
+        //outFile << "t " << "yn " << "vn " << "hn" << endl; 
+        //outFile << "yBar = " << data[vesselNumber][0]/(rho * data[vesselNumber][1]) << endl;
+        
+        //outFile << "deltaT = " << dt << endl;
+
+        cout << outFileName << endl;
+        if (outFile.is_open()) {
+            for(int rowNumber = 0; rowNumber < size(evaluatedMatrix[0]); rowNumber++){
+                outFile << evaluatedMatrix[0][rowNumber][0] <<  ", ";
+                for (int vesselNumber = 0; vesselNumber < data.size();vesselNumber++){
+                    string schemeName = "";
+                    outFile << evaluatedMatrix[vesselNumber][rowNumber][1] << ", " << evaluatedMatrix[vesselNumber][rowNumber][2] << ", " << evaluatedMatrix[vesselNumber][rowNumber][3] << ", ";
+                    //cout << evaluatedMatrix[vesselNumber][rowNumber][0] << "," << evaluatedMatrix[vesselNumber][rowNumber][0] << "," << evaluatedMatrix[vesselNumber][rowNumber][1] << "," << evaluatedMatrix[vesselNumber][rowNumber][2] << "," << evaluatedMatrix[vesselNumber][rowNumber][3] << "," << endl;
+                }
+                outFile << endl;
+            } 
+        }
+        else {
+            cout << "Unable to open the file." << endl;
+        }
+        outFile.close();
     }
 };
 
@@ -234,11 +238,12 @@ class Problem {
 int main() {
     //Problem firstTest = Problem("parameters.txt");
     //firstTest.solveProblem();
-    Problem Q3Part1 = Problem("SV-ND.txt");
-    Q3Part1.solveProblem();
+    //Problem Q3Part1 = Problem("SV-ND.txt");
+    //Q3Part1.solveProblem();
     //Problem Q3Part2 = Problem("SV-LD.txt");
     //Q3Part2.solveProblem();
     //Problem Q3Part3 = Problem("SinkingVessel.txt");
     //Q3Part3.solveProblem();
-    //Problem Q3Part4 = Problem("ThreeVessels.txt");
+    Problem Q3Part4 = Problem("ThreeVessels.txt");
+    Q3Part4.solveProblem();
 }
