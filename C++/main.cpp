@@ -10,14 +10,14 @@ class Problem {
     //constant and data used for this
     public:
         string inFileName;
-        int scheme;
+        int scheme;//declares problem specifications
         long double T;
         long double dt;
         long double g;
         long double rho;
         long double Cd;
-        vector<vector<long double>> data; //m, A, K, y_0, v_0, h_0
-        vector<vector<vector<long double>>> evaluatedMatrix;
+        vector<vector<long double>> data; //vessel specifications m, A, K, y_0, v_0, h_0
+        vector<vector<vector<long double>>> evaluatedMatrix;//3D matrix of solution variables for each vessel
 
 
     Problem(string filename){ 
@@ -27,7 +27,11 @@ class Problem {
         cout << "System Conditions - Scheme: " << scheme << " T = " << T << " dt = " << dt << " g = " << g << " rho = " << rho << " Cd = " << Cd << endl;   
     }
 
-    void solveProblem(){
+    ~Problem(){
+        cout << "Problem Deleted" << endl;
+    }
+
+    void solveProblem(){//steps to solve problem and write output file with solution
         generateMatrix();
         cout << "Matrix Generated" << endl;
         saveToFile();
@@ -75,7 +79,7 @@ class Problem {
         g = constants[3];
         rho = constants[4];
         Cd = constants[5];
-        constants.clear();//clearing memory
+        constants.clear();
 
         while (getline(file,line)) { //finds and saves data for remaining lines
             vector<long double> row;
@@ -100,11 +104,11 @@ class Problem {
         }
         file.close();//closes file to prevent errors if other files are opened
 
-        if (dt <= 0 || T <= 0) {
+        if (dt <= 0 || T <= 0) {//checks for logical errors 
             cout << "Error: Invalid time step or total time." << endl;
             exit(1);
         }
-        if (data.empty()) {
+        if (data.empty()) {//checks for empty or invalid file
             cout << "Error: No vessel data found." << endl;
             exit(1);
         }
@@ -112,16 +116,16 @@ class Problem {
         return 0;
     }      
 
-    long double finddh (long double m, long double A, long double K, long double yt, long double ht){
+    long double finddh (long double m, long double A, long double K, long double yt, long double ht){//outputs the change in height with respect to time for the parameters given
         return  (K/(rho*A) * (m/(rho*A) + yt - ht));
     }
 
-    long double findAcc (long double m, long double A, long double K, long double yt, long double vt, long double ht){
+    long double findAcc (long double m, long double A, long double K, long double yt, long double vt, long double ht){//outputs acceleration of the vessel for the parameters given
         return ((rho*A)/(m + rho*A*ht)) * (2.0*g*ht - g*yt - 0.5*Cd*abs(vt)*vt);
     }
 
 
-    vector<vector<long double>> FE(long double m, long double A, long double K, long double y0, long double v0, long double h0){
+    vector<vector<long double>> FE(long double m, long double A, long double K, long double y0, long double v0, long double h0){//explicit euler function with parameters
         vector<vector<long double>> out;
         vector<long double> row = {0, y0, v0, h0};
         out.push_back(row);
@@ -132,11 +136,12 @@ class Problem {
             row = {t, yn, vn, hn};
             out.push_back(row);
         }
-        cout << "Returned" << endl;
+        //cout << "t = " << row[0] << " y = " << row[1] << " v = " << row[2] << " hn = " << row[3] << endl;//for final location
+        cout << "Returned" << endl;//indicates completion
         return out;
     }
 
-    vector<vector<long double>> RK4(long double m, long double A, long double K, long double y0, long double v0, long double h0){
+    vector<vector<long double>> RK4(long double m, long double A, long double K, long double y0, long double v0, long double h0){//Runge kutta function with parameters
         vector<vector<long double>> out;
         vector<long double> row = {0, y0, v0, h0};
         out.push_back(row);
@@ -173,8 +178,8 @@ class Problem {
             
             out.push_back(row);
         }
-        cout << "t = " << row[0] << " y = " << row[1] << " v = " << row[2] << " hn = " << row[3] << endl;
-        cout << "Returned" << endl;
+        //cout << "t = " << row[0] << " y = " << row[1] << " v = " << row[2] << " hn = " << row[3] << endl;//for final location 
+        cout << "Returned" << endl;//indicates problem is finished
         return out;
     }
 
@@ -182,19 +187,19 @@ class Problem {
     void generateMatrix(){//generates 3D matrix of the motion of the time, position, velocity, height for each time step for each of the vessel parameters
         
         for (int vesselNumber = 0; vesselNumber < data.size();vesselNumber++){//for each vessel being evaluated 
-            cout << "Currently Porcessing VesselNumber: " << vesselNumber + 1 << endl;
-            cout << "m = " << data[vesselNumber][0] << " A = " <<  data[vesselNumber][1] << " K = " <<  data[vesselNumber][2] << " y0 = " << data[vesselNumber][3] << " v0 = " << data[vesselNumber][4] << " h0 = " << data[vesselNumber][5] << endl;
-            if(scheme == 0){
+            cout << "Currently Porcessing VesselNumber: " << vesselNumber + 1 << endl;//prints current process of problem to console
+            cout << "m = " << data[vesselNumber][0] << " A = " <<  data[vesselNumber][1] << " K = " <<  data[vesselNumber][2] << " y0 = " << data[vesselNumber][3] << " v0 = " << data[vesselNumber][4] << " h0 = " << data[vesselNumber][5] << endl;//problem specs
+            if(scheme == 0){//for explicit euler problem
                 evaluatedMatrix.push_back(FE(data[vesselNumber][0], data[vesselNumber][1], data[vesselNumber][2], data[vesselNumber][3], data[vesselNumber][4], data[vesselNumber][5]));
             }
-            if(scheme == 1){
+            if(scheme == 1){//for runge kutta problem
                 evaluatedMatrix.push_back(RK4(data[vesselNumber][0], data[vesselNumber][1], data[vesselNumber][2], data[vesselNumber][3], data[vesselNumber][4], data[vesselNumber][5]));
             }
         }
     }
 
     void saveToFile(){
-        string schemeName = "";
+        string schemeName = "";//scheme name for outfile organization
         if (scheme == 0){
             schemeName = "FE";
         }
@@ -202,8 +207,8 @@ class Problem {
             schemeName = "RK4";
         }
 
-        string outFileName = "writeFiles/positionData-" + inFileName + "-" + to_string(data.size()) + "-" + schemeName + "-dt=" + to_string(dt) + ".txt";
-        ofstream outFile(outFileName);
+        string outFileName = "writeFiles/positionData-" + inFileName + "-" + to_string(data.size()) + "-" + schemeName + "-dt=" + to_string(dt) + ".txt";//names file with problem specs and number of vessels
+        ofstream outFile(outFileName);//creates instance of file
 
         //outFile << inFileName << " - Vessel Number " << to_string(vesselNumber + 1) << endl;
         //outFile << "m = " << data[vesselNumber][0] << " A = " <<  data[vesselNumber][1] << " K = " <<  data[vesselNumber][2] << " y0 = " << data[vesselNumber][3] << " v0 = " << data[vesselNumber][4] << " h0 = " << data[vesselNumber][5] << endl;
@@ -214,20 +219,20 @@ class Problem {
 
         cout << outFileName << endl;
         if (outFile.is_open()) {
-            for(int rowNumber = 0; rowNumber < size(evaluatedMatrix[0]); rowNumber++){
-                outFile << evaluatedMatrix[0][rowNumber][0] <<  ", ";
-                for (int vesselNumber = 0; vesselNumber < data.size();vesselNumber++){
+            for(int rowNumber = 0; rowNumber < size(evaluatedMatrix[0]); rowNumber++){//writes each vessel number and each row to file
+                outFile << evaluatedMatrix[0][rowNumber][0] <<  ", ";//writes time step to file for all vessels
+                for (int vesselNumber = 0; vesselNumber < data.size();vesselNumber++){//for each vessel
                     string schemeName = "";
                     outFile << evaluatedMatrix[vesselNumber][rowNumber][1] << ", " << evaluatedMatrix[vesselNumber][rowNumber][2] << ", " << evaluatedMatrix[vesselNumber][rowNumber][3] << ", ";
                     //cout << evaluatedMatrix[vesselNumber][rowNumber][0] << "," << evaluatedMatrix[vesselNumber][rowNumber][0] << "," << evaluatedMatrix[vesselNumber][rowNumber][1] << "," << evaluatedMatrix[vesselNumber][rowNumber][2] << "," << evaluatedMatrix[vesselNumber][rowNumber][3] << "," << endl;
                 }
-                outFile << endl;
+                outFile << endl;//new line after final vessel number
             } 
         }
-        else {
+        else {//for file error
             cout << "Unable to open the file." << endl;
         }
-        outFile.close();
+        outFile.close();//to avoid open file error in case of multiple problems/files
     }
 };
 
@@ -236,14 +241,18 @@ class Problem {
 
 
 int main() {
-    //Problem firstTest = Problem("parameters.txt");
-    //firstTest.solveProblem();
-    //Problem Q3Part1 = Problem("SV-ND.txt");
-    //Q3Part1.solveProblem();
-    //Problem Q3Part2 = Problem("SV-LD.txt");
-    //Q3Part2.solveProblem();
-    //Problem Q3Part3 = Problem("SinkingVessel.txt");
-    //Q3Part3.solveProblem();
+    Problem firstTest = Problem("parameters.txt");
+    firstTest.solveProblem();//test case
+    Problem Q3Part1 = Problem("SV-ND.txt");
+    Q3Part1.solveProblem();//Single Vessel No Drag
+    Problem Q3Part2 = Problem("SV-LD.txt");
+    Q3Part2.solveProblem();//Single Vessel Low Drag
+    Problem Q3Part3 = Problem("SinkingVessel.txt");
+    Q3Part3.solveProblem();//Sinking Vessel
     Problem Q3Part4 = Problem("ThreeVessels.txt");
-    Q3Part4.solveProblem();
+    Q3Part4.solveProblem();//Three Vessels
+    Problem freqAnalysis = Problem("freqAnalysis.txt");
+    freqAnalysis.solveProblem();//File for Frequency Analysis
+    cout << "Analysis Complete" << endl;
+    return 1;
 }
